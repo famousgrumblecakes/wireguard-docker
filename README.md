@@ -1,6 +1,6 @@
 ## WireGuard in Docker
 
-This is the companion repository to my [blog
+This is the companion repository to ~~my~~ Riccardo P. Bestetti's [blog
 post](https://www.bestov.io/blog/using-wireguard-as-the-network-for-a-docker-container) about using
 WireGuard interfaces in Docker containers.
 
