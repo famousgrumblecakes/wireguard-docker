@@ -1,0 +1,21 @@
+{
+  "name": "docker-plugin-node",
+  "version": "1.0.0",
+  "description": "Node port of Riccardo P. Bestetti's PoC wireguard driver for docker",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "wireguard",
+    "wg",
+    "docker"
+  ],
+  "author": "Peter Neal",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-persist": "^3.1.3",
+    "persistentmap": "^1.1.5"
+  }
+}
