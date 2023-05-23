@@ -269,7 +269,7 @@ module.exports = class {
                 })
                     .once('listening', () => {
                         server.once('close', () => {
-                            resolve(server.address().port)
+                            resolve(this.address().port)
 
                         }).close();
 
