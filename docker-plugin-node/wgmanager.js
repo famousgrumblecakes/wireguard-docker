@@ -288,7 +288,7 @@ module.exports = class {
             */
             return new Promise((resolve, reject)=>{
                 
-                const IFPREFIX = 'bst';
+                const IFPREFIX = 'wg-';
                 const ifname = `${IFPREFIX}${options['Salt']}`.slice(0, 15);
                 
                 try {
@@ -345,11 +345,11 @@ module.exports = class {
                             ListenPort = ${port}
                             `.trim();
             
-                        const tmpConfFile = join(__dirname, 'wg-conf-' + Date.now());
+                        const tmpConfFile = join(__dirname, ifname);
             
-                        writeFileSync(tmpConfFile, conf, 'utf-8')
+                        writeFileSync(`${tmpConfFile}.conf`, conf, 'utf-8')
             
-                        spawnSync('wg-quick', ['up', tmpConfFile, ifname ]);
+                        spawnSync('wg-quick', ['up', ifname ]);
                         
                         
                         spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
