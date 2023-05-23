@@ -323,7 +323,7 @@ module.exports = class {
                         bytes[3] = 0;
                     }
 
-                    return `${bytes.join('.')}/mask`
+                    return `${bytes.join('.')}/${mask}`
 
                     return {
                         address: bytes.join('.'),
