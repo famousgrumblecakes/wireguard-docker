@@ -34,7 +34,10 @@ module.exports = class {
                         this.db = JSON.parse(jsonData)
                     } catch (error) {
                         //file was bad.
-                        writeFileSync('./wgdb.bak', JSON.stringify(jsonData), 'utf-8')
+                        writeFileSync('./wgdb.bak', JSON.stringify(jsonData), {
+                            encoding: 'utf-8',
+                            mode: 600
+                        })
                         console.log(`[storage]: error: ${error} ; made a backup of the old data, proceeding with a new db`)
                         this.db = {
                             'n': {}
@@ -52,7 +55,10 @@ module.exports = class {
     SyncDB()
     {
         try{
-            writeFileSync('./wgdb.dat', JSON.stringify(this.db), 'utf-8')
+            writeFileSync('./wgdb.dat', JSON.stringify(this.db), {
+                encoding: 'utf-8',
+                mode: 600
+            })
             console.log(`[storage]: synced data to disk!`)
             return true
         }catch(err){
@@ -288,23 +294,19 @@ module.exports = class {
             */
             return new Promise((resolve, reject)=>{
                 
-                const IFPREFIX = 'wghost-';
+                const IFPREFIX = 'wgh-';
                 const ifname = `${IFPREFIX}${options['Salt']}`.slice(0, 20);
-                
+                console.log(ifname)
                 try {
-                spawnSync('ip', ['link', 'add', 'name', ifname, 'type', 'wireguard'], { stdio: 'ignore' });
+                spawnSync('ip', ['link', 'add', 'name', ifname, 'type', 'wireguard'], { stdio: 'inherit' });
                 } catch (err) {
                     console.log(`[install interface]: error!`)
                     console.log(err)
                 return null;
                 }
-            
-                //spawnSync('ip', ['link'], { stdio: 'inherit' });
-                //spawnSync('wg', [], { stdio: 'inherit' });
-            
+
                 var seed = options['Seed']
                 var salt = options['Salt']
-                //var address = endpoint['Address']
                 /**
                  * Address in this case should be the first address in the subnet. The easiest way to glean this will be to
                  * take the subnet out of the network object, chop it up, and assuming it is a /30 or bigger just add one to the network address.
@@ -340,7 +342,10 @@ module.exports = class {
                             `.trim();
             
 
-                        writeFileSync(`${ifname}.conf`, conf, 'utf-8')
+                        writeFileSync(`${ifname}.conf`, conf, {
+                            encoding: 'utf-8',
+                            mode: 600
+                        })
                         spawnSync('wg', ['setconf',ifname,`${ifname}.conf` ], { stdio: 'inherit' });
                         spawnSync('ip', ['-4', 'address', 'add', addr, 'dev', ifname])
                         spawnSync('ip', ['link', 'set', 'mtu', '1420', 'up', 'dev', ifname])
@@ -408,7 +413,10 @@ module.exports = class {
 
                 const tmpConfFile = join(tmpdir(), 'wg-conf-' + Date.now());
 
-                writeFileSync(tmpConfFile, conf, 'utf-8')
+                writeFileSync(tmpConfFile, conf, {
+                    encoding: 'utf-8',
+                    mode: 600
+                })
 
                 spawnSync('wg', ['setconf', ifname, tmpConfFile]);
                 spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
