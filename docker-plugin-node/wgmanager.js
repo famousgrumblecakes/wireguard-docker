@@ -1,4 +1,4 @@
-const { spawnSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 const { readFile, writeFileSync } = require('fs');
 const { tmpdir } = require('os');
 const {join} = require('path');
@@ -288,7 +288,7 @@ module.exports = class {
             */
             return new Promise((resolve, reject)=>{
                 
-                const IFPREFIX = 'wg-';
+                const IFPREFIX = 'wghost-';
                 const ifname = `${IFPREFIX}${options['Salt']}`.slice(0, 15);
                 
                 try {
@@ -326,7 +326,6 @@ module.exports = class {
                     return `${bytes.join('.')}/${mask}`
 
 
-
                 })(options['Network'])
 
                 this.GetAvailablePort().then((port)=>{
@@ -336,16 +335,15 @@ module.exports = class {
                         const conf =
                             `
                             [Interface]
-                            Address = ${addr}
                             PrivateKey = ${key}
                             ListenPort = ${port}
                             `.trim();
             
-                        //const tmpConfFile = join(__dirname, ifname);
-            
+
                         writeFileSync(`${ifname}.conf`, conf, 'utf-8')
-                        //console.log(`upping ${tmpConfFile}.conf as iface: ${ifname}`)
-                        spawnSync('wg-quick', ['up', `${ifname}.conf` ], { stdio: 'inherit' });
+                        spawnSync('wg', ['setconf',ifname,`${ifname}.conf` ], { stdio: 'inherit' });
+                        spawnSync('ip', ['-4', 'address', 'add', addr, 'dev', ifname])
+                        spawnSync('ip', ['link', 'set', 'mtu', '1420', 'up', 'dev', ifname])
                         
                         
                         spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
