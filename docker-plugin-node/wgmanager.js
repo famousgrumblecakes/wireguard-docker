@@ -348,11 +348,11 @@ module.exports = class {
                         const tmpConfFile = join(__dirname, ifname);
             
                         writeFileSync(`${tmpConfFile}.conf`, conf, 'utf-8')
-            
+                        console.log(`upping ${tmpConfFile}.conf as iface: ${tmpConfFile}`)
                         spawnSync('wg-quick', ['up', `${tmpConfFile}.conf` ], { stdio: 'inherit' });
                         
                         
-                        spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
+                        spawnSync('wg',['showconf', tmpConfFile], { stdio: 'inherit' });
                         console.log(`Made it!`)
             
             
