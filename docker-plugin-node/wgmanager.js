@@ -325,10 +325,6 @@ module.exports = class {
 
                     return `${bytes.join('.')}/${mask}`
 
-                    return {
-                        address: bytes.join('.'),
-                        mask: mask
-                    }
 
 
                 })(options['Network'])
@@ -345,14 +341,14 @@ module.exports = class {
                             ListenPort = ${port}
                             `.trim();
             
-                        const tmpConfFile = join(__dirname, ifname);
+                        //const tmpConfFile = join(__dirname, ifname);
             
-                        writeFileSync(`${tmpConfFile}.conf`, conf, 'utf-8')
-                        console.log(`upping ${tmpConfFile}.conf as iface: ${tmpConfFile}`)
+                        writeFileSync(`${ifname}.conf`, conf, 'utf-8')
+                        console.log(`upping ${tmpConfFile}.conf as iface: ${ifname}`)
                         spawnSync('wg-quick', ['up', `${tmpConfFile}.conf` ], { stdio: 'inherit' });
                         
                         
-                        spawnSync('wg',['showconf', tmpConfFile], { stdio: 'inherit' });
+                        spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
                         console.log(`Made it!`)
             
             
