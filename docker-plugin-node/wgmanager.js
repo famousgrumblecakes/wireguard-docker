@@ -260,7 +260,7 @@ module.exports = class {
             return new Promise((resolve, reject)=>{
                 var port = Math.floor(Math.random() * (5000 - 4000) + 4000)
 
-                net.createServer()
+                var server = net.createServer()
                     .once('error', () => {
                     //lmfao kill me now
                     this.GetAvailablePort().then((p)=>{
