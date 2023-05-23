@@ -289,7 +289,7 @@ module.exports = class {
             return new Promise((resolve, reject)=>{
                 
                 const IFPREFIX = 'wghost-';
-                const ifname = `${IFPREFIX}${options['Salt']}`.slice(0, 15);
+                const ifname = `${IFPREFIX}${options['Salt']}`.slice(0, 20);
                 
                 try {
                 spawnSync('ip', ['link', 'add', 'name', ifname, 'type', 'wireguard'], { stdio: 'ignore' });
