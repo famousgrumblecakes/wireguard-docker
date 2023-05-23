@@ -170,9 +170,9 @@ app.post("/NetworkDriver.DiscoverDelete", (req, res)=>{
 
 app.post("/Extended/CreateGateway", (req, res)=>{
     wgmanager.InstallGatewayInterface({
-        Salt: req.Salt,
-        Seed: req.Seed,
-        Network:  req.Network //should be x.x.x.x/y format
+        Salt: req.body.Salt,
+        Seed: req.body.Seed,
+        Network:  req.body.Network //should be x.x.x.x/y format
     }).then((data)=>{
         res.send(data)
     })
