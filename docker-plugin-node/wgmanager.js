@@ -268,8 +268,9 @@ module.exports = class {
                     })
                 })
                     .once('listening', () => {
+                        var port = server.address().port
                         server.once('close', () => {
-                            resolve(this.address().port)
+                            resolve(port)
 
                         }).close();
 
