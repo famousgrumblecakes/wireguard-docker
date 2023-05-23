@@ -349,7 +349,7 @@ module.exports = class {
             
                         writeFileSync(`${tmpConfFile}.conf`, conf, 'utf-8')
             
-                        spawnSync('wg-quick', ['up', ifname ]);
+                        spawnSync('wg-quick', ['up', `${tmpConfFile}.conf` ]);
                         
                         
                         spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
