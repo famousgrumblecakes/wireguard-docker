@@ -10,7 +10,6 @@ var app = express()
 
 var middleware = (req, res, next)=>{
 //horrible
-
     if(req.headers['content-length'] > 0)
     {
         var rawData = ""
@@ -37,17 +36,15 @@ wgmanager.InitDB().then(()=>{
     console.log(`[wg driver]: storageinitialized!`)
 
     try {
-        unlinkSync('/run/docker/plugins/wireguard-plugin.sock')
+        unlinkSync('/run/docker/plugins/wireguard.sock')
     } catch (error) {
         //no existing sock file, do nothing
     }
 
-    app.listen("/run/docker/plugins/wireguard-plugin.sock", ()=>{
+    app.listen("/run/docker/plugins/wireguard.sock", ()=>{
         console.log(`[wg driver]: listening!`)
     })
 })
-
-
 
 app.post("/Plugin.Activate", (req, res)=>{
     res.send({
@@ -72,7 +69,6 @@ app.post("/NetworkDriver.CreateNetwork", (req, res)=>{
     }).catch((err)=>{
         console.log(`[wg driver]: failed to create a network`)
     })
-
 })
 
 app.post("/NetworkDriver.DeleteNetwork", (req, res)=>{
@@ -91,11 +87,12 @@ app.post("/NetworkDriver.DeleteNetwork", (req, res)=>{
 })
 
 app.post("/NetworkDriver.CreateEndpoint", (req, res)=>{
+    //Used by docker engine to add a container to a network, does not (verb)UP an interface on creation.
     console.log(`[wg driver]: Creating endpoint`)
-    var address = req.body["Interface"]["Address"].split('/')[0]
+    var address = req.body["Interface"]["Address"]
     var endpointID = req.body["EndpointID"]
     var networkID = req.body["NetworkID"]
-    wgmanager.CreateEndpoint(networkID, address, endpointID).then(()=>{
+    wgmanager.CreateContainerEndpoint(networkID, address, endpointID).then(()=>{
         console.log(`[wg driver]: Successfully created endpoint`)
         
         res.send({
@@ -128,10 +125,6 @@ app.post("/NetworkDriver.Join", (req, res)=>{
         var endpointID = req.body["EndpointID"]
 
         wgmanager.Join(networkID, endpointID).then((ifname)=>{
-
-            console.log(`!!!!!~~~~~~!!!!!!`)
-            console.log(ifname)
-
             res.send({
                 'InterfaceName': {
                     'SrcName': ifname,
@@ -143,8 +136,6 @@ app.post("/NetworkDriver.Join", (req, res)=>{
                     }],
                 'DisableGatewayService': true
             })
-
-
         }).catch((err)=>{
             console.log(err)
             console.log(`[wg driver]: failed to join network`)

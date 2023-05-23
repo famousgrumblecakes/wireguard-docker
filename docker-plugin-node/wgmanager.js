@@ -14,6 +14,10 @@ module.exports = class {
 
 
     async InitDB(){
+        /*
+         * I actually think that the info we care about is stored in the docker network info, so maybe we'll redo this later to just read out of that.
+         * That way we're not storing the secrets in plaintext :)
+         */
         return new Promise((resolve, reject)=>{
             readFile('./wgdb.dat', { encoding: 'utf8', flag: 'r' }, (err, jsonData)=>{
                 if(err)
@@ -42,10 +46,6 @@ module.exports = class {
                 }
                 resolve(true)
             })
-
-            
-
-
         })
     }
 
@@ -65,13 +65,17 @@ module.exports = class {
 
     async CreateNetwork(options, networkID)
     {
+        // This basically adds a network space to Docker. Docker will later attempt to add things to this network, and the wgmanager will use its
+        // stored wg info to build those interfaces.
+
+        /**
+         On the client system, new containers added to this network will have interfaces created for them at that time.
+         On the gateway system, we need some indication from 
+         */
+
+        // This will come from a call by the [sb]m using the docker engine api to create a network.
+
         return new Promise((resolve, reject)=>{
-
-            /*
-             * we should be able to figure out the server's key 
-             * using the 
-             */
-
 
             this.db.n[networkID] = {
                 Peer: options['wg.peer'],
@@ -110,8 +114,11 @@ module.exports = class {
     }
 
 
-    async CreateEndpoint(networkID, address, endpointID)
+    async CreateContainerEndpoint(networkID, address, endpointID)
     {
+
+        //Used by docker engine to add a container to a network. When the container comes up, docker will ask the wgmanager to create and UP an interface for it.
+
         return new Promise((resolve, reject)=>{
 
             console.log(this.db)
@@ -146,6 +153,7 @@ module.exports = class {
 
     async Join(networkID, endpointID)
     {
+        //Used by docker driver to add a container to the wg network, creates and UPs an interface that connects to a known-up peer.
         return new Promise((resolve, reject)=>{
 
             try {
@@ -164,7 +172,7 @@ module.exports = class {
             }
 
 
-            this.InstallInterface(network, endpoint).then((ifname)=>{
+            this.InstallClientInterface(network, endpoint).then((ifname)=>{
 
                 endpoint.joined = ifname
                 this.db.n[networkID]['e'][endpointID] = endpoint
@@ -177,10 +185,10 @@ module.exports = class {
                 console.log(`[wgmanager]: failed to create the interface`)
                 reject(err) //failed to create the interface
             })
-
-
         })
     }
+
+    
 
     async Leave(networkID, endpointID)
     {
@@ -188,9 +196,11 @@ module.exports = class {
 
             if(this.db.n[networkID]['e'][endpointID])
             {
+                var ifname = this.db.n[networkID]['e'][endpointID].joined
                 delete this.db.n[networkID]['e'][endpointID]
                 this.SyncDB()
                 resolve(true)
+                setTimeout(UninstallInterface(ifname), 3000) //kinda gross, but wait a couple seconds for docker to return the interface to the os, then delete it
             }else{
                 //this endpoint didn't exist
                 reject(false)
@@ -243,10 +253,106 @@ module.exports = class {
         })
     }
 
-    async InstallInterface(network, endpoint) {
+
+    async GetAvailablePort(){
+        const net = require('net');
+
+        return new Promise((resolve, reject)=>{
+            var port = Math.floor(Math.random() * (5000 - 4000) + 4000)
+
+            net.createServer()
+                .once('error', () => {
+                //lmfao kill me now
+                this.GetAvailablePort().then((p)=>{
+                    resolve(p)
+                })
+            })
+                .once('listening', () => {
+                    server.once('close', () => {
+                        resolve(server.address().port)
+
+                    }).close();
+
+                }).listen();
+        })
+    }
+
+    async InstallGatewayInterface(network, address)
+    {
+        /*
+        * Create a wireguard gateway interface.
+        * Uses secrets to create a peerless interface.
+        * Result a wireguard interface for some subnet, this will remain attached to the host. equal to wg-out.conf
+        * After this is created, we should update the db with peer=localhost:port and peerkey=pubkey of the new interface so that containers on this box can use it.
+        */
+        return new Promise((resolve, reject)=>{
+            
+            const IFPREFIX = 'bst';
+            const ifname = `${IFPREFIX}${endpoint['id']}`.slice(0, 15);
+            
+            try {
+              spawnSync('ip', ['link', 'add', 'name', ifname, 'type', 'wireguard'], { stdio: 'ignore' });
+            } catch (err) {
+                console.log(`[install interface]: error!`)
+                console.log(err)
+              return null;
+            }
+          
+            //spawnSync('ip', ['link'], { stdio: 'inherit' });
+            //spawnSync('wg', [], { stdio: 'inherit' });
+          
+            var seed = network['Seed']
+            var salt = network['Salt']
+            //var address = endpoint['Address']
+            /**
+             * Address in this case should be the first address in the subnet. The easiest way to glean this will be to
+             * take the subnet out of the network object, chop it up, and assuming it is a /30 or bigger just add one to the network address.
+             */
+
+
+            this.GetAvailablePort().then((port)=>{
+
+                this.GeneratePrivateKey(seed, salt, address).then((key)=>{
+                    const conf =
+                        `
+                        [Interface]
+                        Address = ${address}
+                        PrivateKey = ${key}
+                        ListenPort = ${port}
+                        `.trim();
+        
+                    const tmpConfFile = join(__dirname, 'wg-conf-' + Date.now());
+        
+                    writeFileSync(tmpConfFile, conf, 'utf-8')
+        
+                    spawnSync('wg', ['setconf', ifname, tmpConfFile]);
+                    spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
+                    console.log(`Made it!`)
+        
+        
+                    resolve({
+
+                    });
+        
+                }).catch((err)=>{
+                    console.log(`[wgmanager]: failed to generate the private key`)
+                    reject(err)
+                })    
+            })
+
+
+
+
+
+        })
+    }
+    
+    async InstallClientInterface(network, endpoint) {
 
         /*
-         * Create a wireguard interface
+         * Create a wireguard client interface.
+         * Uses known secrets + peer/gateway info to join an existing tunnel.
+         * Result a wireguard interface that is preconfigured to connect to a gateway, and which will be moved to some container's netns.
          */
         return new Promise((resolve, reject)=>{
             
@@ -270,16 +376,16 @@ module.exports = class {
 
         this.GeneratePrivateKey(seed, salt, address).then((key)=>{
             const conf =
-`
-[Interface]
-PrivateKey = ${key}
+                `
+                [Interface]
+                PrivateKey = ${key}
 
-[Peer]
-PublicKey = ${network['PeerKey']}
-AllowedIPs = 0.0.0.0/0
-Endpoint = ${network['Peer']}
-PersistentKeepalive = 25
-`.trim();
+                [Peer]
+                PublicKey = ${network['PeerKey']}
+                AllowedIPs = 0.0.0.0/0
+                Endpoint = ${network['Peer']}
+                PersistentKeepalive = 25
+                `.trim();
 
             const tmpConfFile = join(tmpdir(), 'wg-conf-' + Date.now());
 
