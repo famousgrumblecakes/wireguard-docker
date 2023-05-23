@@ -309,7 +309,7 @@ module.exports = class {
                  * Address in this case should be the first address in the subnet. The easiest way to glean this will be to
                  * take the subnet out of the network object, chop it up, and assuming it is a /30 or bigger just add one to the network address.
                  */
-                var addr_info = ((network) => {
+                var addr = ((network) => {
 
                     var [ip, mask] = network.split('/')
 
@@ -323,6 +323,8 @@ module.exports = class {
                         bytes[3] = 0;
                     }
 
+                    return `${bytes.join('.')}/mask`
+
                     return {
                         address: bytes.join('.'),
                         mask: mask
@@ -333,12 +335,12 @@ module.exports = class {
 
                 this.GetAvailablePort().then((port)=>{
                     console.log(`using port ${port}`)
-                    console.log(`address: ${addr_info.address}/${addr_info.mask}`)
-                    this.GeneratePrivateKey(seed, salt, address).then((key)=>{
+
+                    this.GeneratePrivateKey(seed, salt, addr).then((key)=>{
                         const conf =
                             `
                             [Interface]
-                            Address = ${addr_info.address}/${addr_info.mask}
+                            Address = ${addr}
                             PrivateKey = ${key}
                             ListenPort = ${port}
                             `.trim();
