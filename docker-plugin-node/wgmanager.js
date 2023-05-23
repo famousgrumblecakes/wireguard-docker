@@ -151,260 +151,277 @@ module.exports = class {
         })
     }
 
-    async Join(networkID, endpointID)
-    {
-        //Used by docker driver to add a container to the wg network, creates and UPs an interface that connects to a known-up peer.
-        return new Promise((resolve, reject)=>{
+        async Join(networkID, endpointID)
+        {
+            //Used by docker driver to add a container to the wg network, creates and UPs an interface that connects to a known-up peer.
+            return new Promise((resolve, reject)=>{
 
-            try {
-                
-                var network = this.db.n[networkID]
-                var endpoint = this.db.n[networkID]['e'][endpointID]
-
-
-            } catch (error) {
-                reject(error) //either network or endpoint didn't exist in the db
-            }
-
-            if(endpoint['joined'] == true)
-            {
-                reject(false) //endpoint was already joined
-            }
+                try {
+                    
+                    var network = this.db.n[networkID]
+                    var endpoint = this.db.n[networkID]['e'][endpointID]
 
 
-            this.InstallClientInterface(network, endpoint).then((ifname)=>{
+                } catch (error) {
+                    reject(error) //either network or endpoint didn't exist in the db
+                }
 
-                endpoint.joined = ifname
-                this.db.n[networkID]['e'][endpointID] = endpoint
-                this.SyncDB()
+                if(endpoint['joined'] == true)
+                {
+                    reject(false) //endpoint was already joined
+                }
 
 
-                resolve(ifname)
+                this.InstallClientInterface(network, endpoint).then((ifname)=>{
 
-            }).catch((err)=>{
-                console.log(`[wgmanager]: failed to create the interface`)
-                reject(err) //failed to create the interface
+                    endpoint.joined = ifname
+                    this.db.n[networkID]['e'][endpointID] = endpoint
+                    this.SyncDB()
+
+
+                    resolve(ifname)
+
+                }).catch((err)=>{
+                    console.log(`[wgmanager]: failed to create the interface`)
+                    reject(err) //failed to create the interface
+                })
             })
-        })
-    }
+        }
 
     
 
-    async Leave(networkID, endpointID)
-    {
-        return new Promise((resolve, reject)=>{
+        async Leave(networkID, endpointID)
+        {
+            return new Promise((resolve, reject)=>{
 
-            if(this.db.n[networkID]['e'][endpointID])
-            {
-                var ifname = this.db.n[networkID]['e'][endpointID].joined
-                delete this.db.n[networkID]['e'][endpointID]
-                this.SyncDB()
-                resolve(true)
-                setTimeout(UninstallInterface(ifname), 3000) //kinda gross, but wait a couple seconds for docker to return the interface to the os, then delete it
-            }else{
-                //this endpoint didn't exist
-                reject(false)
-            }
-        })
-    }
-
-
-    async GeneratePrivateKey(seed, salt, address)
-    {
-        /*
-            Generate a curve25519 key
-        */
-        return new Promise((resolve, reject)=>{
-            console.log(address)
-            console.log(seed)
-            console.log(salt)
-            const hash = createHash("sha3-256")
-                .update(seed + address)
-                .update( 
-                    createHash('sha3-256')
-                        .update(salt)
-                        .digest()
-                    )
-                .digest()
-
-            var curve25519 = Buffer.from(hash)
-
-            curve25519.writeUInt8()
-
-            curve25519.writeUInt8((curve25519.readUInt8(0) & 0b11111000), 0)
-            curve25519.writeUInt8(((curve25519.readUInt8(31) & 0b01111111) | 0b01000000), 31)
-
-
-            curve25519 = curve25519.toString('base64').toString('ascii')
-            
-            console.log(`[crypto]: Generated key ${curve25519}`)
-
-            resolve(curve25519)
-            
-        })
-    }
-
-    async UninstallInterface(ifname)
-    {
-        return new Promise((resolve, reject)=>{
-
-            spawnSync('ip', ['link', 'delete', ifname])
-
-        })
-    }
-
-
-    async GetAvailablePort(){
-        const net = require('net');
-
-        return new Promise((resolve, reject)=>{
-            var port = Math.floor(Math.random() * (5000 - 4000) + 4000)
-
-            net.createServer()
-                .once('error', () => {
-                //lmfao kill me now
-                this.GetAvailablePort().then((p)=>{
-                    resolve(p)
-                })
+                if(this.db.n[networkID]['e'][endpointID])
+                {
+                    var ifname = this.db.n[networkID]['e'][endpointID].joined
+                    delete this.db.n[networkID]['e'][endpointID]
+                    this.SyncDB()
+                    resolve(true)
+                    setTimeout(UninstallInterface(ifname), 3000) //kinda gross, but wait a couple seconds for docker to return the interface to the os, then delete it
+                }else{
+                    //this endpoint didn't exist
+                    reject(false)
+                }
             })
-                .once('listening', () => {
-                    server.once('close', () => {
-                        resolve(server.address().port)
+        }
 
-                    }).close();
 
-                }).listen();
-        })
-    }
+        async GeneratePrivateKey(seed, salt, address)
+        {
+            /*
+                Generate a curve25519 key
+            */
+            return new Promise((resolve, reject)=>{
+                console.log(address)
+                console.log(seed)
+                console.log(salt)
+                const hash = createHash("sha3-256")
+                    .update(seed + address)
+                    .update( 
+                        createHash('sha3-256')
+                            .update(salt)
+                            .digest()
+                        )
+                    .digest()
 
-    async InstallGatewayInterface(network, address)
-    {
-        /*
-        * Create a wireguard gateway interface.
-        * Uses secrets to create a peerless interface.
-        * Result a wireguard interface for some subnet, this will remain attached to the host. equal to wg-out.conf
-        * After this is created, we should update the db with peer=localhost:port and peerkey=pubkey of the new interface so that containers on this box can use it.
-        */
-        return new Promise((resolve, reject)=>{
+                var curve25519 = Buffer.from(hash)
+
+                curve25519.writeUInt8()
+
+                curve25519.writeUInt8((curve25519.readUInt8(0) & 0b11111000), 0)
+                curve25519.writeUInt8(((curve25519.readUInt8(31) & 0b01111111) | 0b01000000), 31)
+
+
+                curve25519 = curve25519.toString('base64').toString('ascii')
+                
+                console.log(`[crypto]: Generated key ${curve25519}`)
+
+                resolve(curve25519)
+                
+            })
+        }
+
+        async UninstallInterface(ifname)
+        {
+            return new Promise((resolve, reject)=>{
+
+                spawnSync('ip', ['link', 'delete', ifname])
+
+            })
+        }
+
+
+        async GetAvailablePort(){
+            const net = require('net');
+
+            return new Promise((resolve, reject)=>{
+                var port = Math.floor(Math.random() * (5000 - 4000) + 4000)
+
+                net.createServer()
+                    .once('error', () => {
+                    //lmfao kill me now
+                    this.GetAvailablePort().then((p)=>{
+                        resolve(p)
+                    })
+                })
+                    .once('listening', () => {
+                        server.once('close', () => {
+                            resolve(server.address().port)
+
+                        }).close();
+
+                    }).listen();
+            })
+        }
+
+        async InstallGatewayInterface(options)
+        {
+            /*
+            * Create a wireguard gateway interface.
+            * Uses secrets to create a peerless interface.
+            * Result a wireguard interface for some subnet, this will remain attached to the host. equal to wg-out.conf
+            * After this is created, we should update the db with peer=localhost:port and peerkey=pubkey of the new interface so that containers on this box can use it.
+            */
+            return new Promise((resolve, reject)=>{
+                
+                const IFPREFIX = 'bst';
+                const ifname = `${IFPREFIX}${endpoint['id']}`.slice(0, 15);
+                
+                try {
+                spawnSync('ip', ['link', 'add', 'name', ifname, 'type', 'wireguard'], { stdio: 'ignore' });
+                } catch (err) {
+                    console.log(`[install interface]: error!`)
+                    console.log(err)
+                return null;
+                }
             
+                //spawnSync('ip', ['link'], { stdio: 'inherit' });
+                //spawnSync('wg', [], { stdio: 'inherit' });
+            
+                var seed = options['Seed']
+                var salt = options['Salt']
+                //var address = endpoint['Address']
+                /**
+                 * Address in this case should be the first address in the subnet. The easiest way to glean this will be to
+                 * take the subnet out of the network object, chop it up, and assuming it is a /30 or bigger just add one to the network address.
+                 */
+                var addr_info = ((network) => {
+
+                    var [ip, mask] = network.split('/')
+
+                    var bytes = ip.split('.').map(Number)
+                    var numHosts = (2**(32-mask)) - 2;
+
+                    bytes[3] += 1;
+                    if(bytes[3] > 255)
+                    {
+                        bytes[2] += 1;
+                        bytes[3] = 0;
+                    }
+
+                    return {
+                        address: bytes.join('.'),
+                        mask: mask
+                    }
+
+
+                })(options['Network'])
+
+                this.GetAvailablePort().then((port)=>{
+                    console.log(`using port ${port}`)
+                    console.log(`address: ${addr_info.address}/${addr_info.mask}`)
+                    this.GeneratePrivateKey(seed, salt, address).then((key)=>{
+                        const conf =
+                            `
+                            [Interface]
+                            Address = ${addr_info.address}/${addr_info.mask}
+                            PrivateKey = ${key}
+                            ListenPort = ${port}
+                            `.trim();
+            
+                        const tmpConfFile = join(__dirname, 'wg-conf-' + Date.now());
+            
+                        writeFileSync(tmpConfFile, conf, 'utf-8')
+            
+                        spawnSync('wg', ['setconf', ifname, tmpConfFile]);
+                        spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
+                        console.log(`Made it!`)
+            
+            
+                        resolve({
+                            port: port
+                        });
+            
+                    }).catch((err)=>{
+                        console.log(`[wgmanager]: failed to generate the private key`)
+                        reject(err)
+                    })    
+                })
+
+
+
+
+
+            })
+        }
+
+        async InstallClientInterface(network, endpoint) {
+            /*
+            * Create a wireguard client interface.
+            * Uses known secrets + peer/gateway info to join an existing tunnel.
+            * Result a wireguard interface that is preconfigured to connect to a gateway, and which will be moved to some container's netns.
+            */
+            return new Promise((resolve, reject)=>{
+                
             const IFPREFIX = 'bst';
             const ifname = `${IFPREFIX}${endpoint['id']}`.slice(0, 15);
             
             try {
-              spawnSync('ip', ['link', 'add', 'name', ifname, 'type', 'wireguard'], { stdio: 'ignore' });
+            spawnSync('ip', ['link', 'add', 'name', ifname, 'type', 'wireguard'], { stdio: 'ignore' });
             } catch (err) {
                 console.log(`[install interface]: error!`)
                 console.log(err)
-              return null;
+            return null;
             }
-          
+
             //spawnSync('ip', ['link'], { stdio: 'inherit' });
             //spawnSync('wg', [], { stdio: 'inherit' });
-          
+
             var seed = network['Seed']
             var salt = network['Salt']
-            //var address = endpoint['Address']
-            /**
-             * Address in this case should be the first address in the subnet. The easiest way to glean this will be to
-             * take the subnet out of the network object, chop it up, and assuming it is a /30 or bigger just add one to the network address.
-             */
+            var address = endpoint['Address']
+
+            this.GeneratePrivateKey(seed, salt, address).then((key)=>{
+                const conf =
+                    `
+                    [Interface]
+                    PrivateKey = ${key}
+
+                    [Peer]
+                    PublicKey = ${network['PeerKey']}
+                    AllowedIPs = 0.0.0.0/0
+                    Endpoint = ${network['Peer']}
+                    PersistentKeepalive = 25
+                    `.trim();
+
+                const tmpConfFile = join(tmpdir(), 'wg-conf-' + Date.now());
+
+                writeFileSync(tmpConfFile, conf, 'utf-8')
+
+                spawnSync('wg', ['setconf', ifname, tmpConfFile]);
+                spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
+                console.log(`Made it!`)
 
 
-            this.GetAvailablePort().then((port)=>{
+                resolve(ifname);
 
-                this.GeneratePrivateKey(seed, salt, address).then((key)=>{
-                    const conf =
-                        `
-                        [Interface]
-                        Address = ${address}
-                        PrivateKey = ${key}
-                        ListenPort = ${port}
-                        `.trim();
-        
-                    const tmpConfFile = join(__dirname, 'wg-conf-' + Date.now());
-        
-                    writeFileSync(tmpConfFile, conf, 'utf-8')
-        
-                    spawnSync('wg', ['setconf', ifname, tmpConfFile]);
-                    spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
-                    console.log(`Made it!`)
-        
-        
-                    resolve({
-
-                    });
-        
-                }).catch((err)=>{
-                    console.log(`[wgmanager]: failed to generate the private key`)
-                    reject(err)
-                })    
+            }).catch((err)=>{
+                console.log(`[wgmanager]: failed to generate the private key`)
+                reject(err)
             })
-
-
-
-
-
         })
     }
-    
-    async InstallClientInterface(network, endpoint) {
-
-        /*
-         * Create a wireguard client interface.
-         * Uses known secrets + peer/gateway info to join an existing tunnel.
-         * Result a wireguard interface that is preconfigured to connect to a gateway, and which will be moved to some container's netns.
-         */
-        return new Promise((resolve, reject)=>{
-            
-        const IFPREFIX = 'bst';
-        const ifname = `${IFPREFIX}${endpoint['id']}`.slice(0, 15);
-        
-        try {
-          spawnSync('ip', ['link', 'add', 'name', ifname, 'type', 'wireguard'], { stdio: 'ignore' });
-        } catch (err) {
-            console.log(`[install interface]: error!`)
-            console.log(err)
-          return null;
-        }
-      
-        //spawnSync('ip', ['link'], { stdio: 'inherit' });
-        //spawnSync('wg', [], { stdio: 'inherit' });
-      
-        var seed = network['Seed']
-        var salt = network['Salt']
-        var address = endpoint['Address']
-
-        this.GeneratePrivateKey(seed, salt, address).then((key)=>{
-            const conf =
-                `
-                [Interface]
-                PrivateKey = ${key}
-
-                [Peer]
-                PublicKey = ${network['PeerKey']}
-                AllowedIPs = 0.0.0.0/0
-                Endpoint = ${network['Peer']}
-                PersistentKeepalive = 25
-                `.trim();
-
-            const tmpConfFile = join(tmpdir(), 'wg-conf-' + Date.now());
-
-            writeFileSync(tmpConfFile, conf, 'utf-8')
-
-            spawnSync('wg', ['setconf', ifname, tmpConfFile]);
-            spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
-            console.log(`Made it!`)
-
-
-            resolve(ifname);
-
-        }).catch((err)=>{
-            console.log(`[wgmanager]: failed to generate the private key`)
-            reject(err)
-        })
-
-    })
-    }
-
-
 }
