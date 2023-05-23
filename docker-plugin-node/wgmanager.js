@@ -349,7 +349,9 @@ module.exports = class {
             
                         writeFileSync(tmpConfFile, conf, 'utf-8')
             
-                        spawnSync('wg', ['setconf', ifname, tmpConfFile]);
+                        spawnSync('wg-quick', ['up', tmpConfFile, ifname ]);
+                        
+                        
                         spawnSync('wg',['showconf', ifname], { stdio: 'inherit' });
                         console.log(`Made it!`)
             
