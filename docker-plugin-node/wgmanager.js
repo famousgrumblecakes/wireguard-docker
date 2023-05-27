@@ -1,5 +1,5 @@
-const { spawnSync, spawn } = require('child_process');
-const { readFile, writeFileSync } = require('fs');
+const { spawnSync, spawn, exec} = require('child_process');
+const { readFile, writeFileSync, readFileSync } = require('fs');
 const { tmpdir } = require('os');
 const {join} = require('path');
 
@@ -284,6 +284,77 @@ module.exports = class {
             })
         }
 
+        async AddPeerToGateway(options)
+        {
+
+            /*
+            
+                options: {
+                    PeerAddress: "x.x.x.x/y",
+                    Salt: `networkname`,
+                    Seed: `someseed`
+                }
+
+            */
+
+            const IFPREFIX = 'wgh-';
+            const ifname = `${IFPREFIX}${options['Salt']}`.slice(0, 20);
+        
+            const conf = readFileSync(`${ifname}.conf`)
+        
+            this.GeneratePrivateKey(options['Seed'], options['Salt'], options['PeerAddress']).then((privkey)=>{
+                this.GetPublicKey(privkey).then((pubkey)=>{
+
+
+
+                    conf = conf += `
+                    
+                    [Peer]
+                    PublicKey = ${pubkey}
+                    AllowedIPs = ${options['PeerAddress']}
+                    `
+
+                    writeFileSync(`${ifname}.conf`, conf, {
+                        encoding: 'utf-8',
+                        mode: 600
+                    })
+
+                    spawnSync('wg', ['setconf',ifname,`${ifname}.conf` ], { stdio: 'inherit' });
+
+                    resolve(true)
+                })
+            })
+            
+
+        }
+
+        async GetPublicKey(PrivKey)
+        {
+            return new Promise((resolve, reject)=>{
+                // Escape any special characters in the private key
+                const sanitizedPrivateKey = privateKey.replace(/'/g, "'\\''");
+
+                // Command to generate the public key
+                const command = `wg pubkey <<< '${sanitizedPrivateKey}'`;
+
+                // Execute the command using the `exec` function
+                exec(command, (error, stdout, stderr) => {
+                    if (error) {
+                    // Handle any errors
+                        reject(error)
+                    } else if (stderr) {
+                    // Handle any error messages from the command
+                        reject(stderr)
+                } else {
+                    // Trim the newline character from the output
+                    const publicKey = stdout.trim();
+                    // Pass the public key to the callback
+                    resolve(publicKey)
+                }
+                });
+            })
+        }
+
         async InstallGatewayInterface(options)
         {
             /*
@@ -355,20 +426,13 @@ module.exports = class {
                         console.log(`Made it!`)
             
             
-                        resolve({
-                            port: port
-                        });
+                        resolve(port);
             
                     }).catch((err)=>{
                         console.log(`[wgmanager]: failed to generate the private key`)
                         reject(err)
                     })    
                 })
-
-
-
-
-
             })
         }
 
